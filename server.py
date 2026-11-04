@@ -41,7 +41,14 @@ class Game:
         self.status = "lobby"
         self.created = time.time()
         self.bot_fill = bot_fill
+        self.difficulty = "normal"
         self.pending = 0   # extra turns earned by scoring
+
+    def seat_name(self, i):
+        if self.names[i]:
+            return self.names[i]
+        # an unnamed seat is a bot once the match is live, an open seat while it waits
+        return f"bot-{i}" if self.status != "lobby" else f"open-{i}"
 
     def public_state(self):
         return {
@@ -50,10 +57,11 @@ class Game:
             "game": "Chain Harvest (dots-and-boxes)",
             "grid": GRID,
             "status": self.status,
+            "difficulty": getattr(self, "difficulty", "normal"),
             "turn": self.turn,
-            "turnPlayer": self.names[self.turn] or f"open-{self.turn}",
+            "turnPlayer": self.seat_name(self.turn),
             "players": [
-                {"seat": i, "name": self.names[i] or f"open-{i}", "isBot": self.tokens.get(i) is None and self.status != "lobby",
+                {"seat": i, "name": self.seat_name(i), "isBot": self.tokens.get(i) is None and self.status != "lobby",
                  "score": self.scores[i]}
                 for i in range(self.seats)
             ],
@@ -65,6 +73,9 @@ class Game:
             },
             "boxesLeft": sum(1 for row in self.board["boxes"] for c in row if c is None),
             "moveCount": len(self.moves),
+            "winnerText": self.winner_text() if self.game_over() else None,
+            "log": [{"n": m["n"], "seat": m["seat"], "player": m["player"], "edge": m["edge"], "boxesWon": m["boxesWon"]}
+                    for m in self.moves[-6:]],
             "hEdges": [[1 if c else 0 for c in row] for row in self.board["h"]],
             "vEdges": [[1 if c else 0 for c in row] for row in self.board["v"]],
         }
@@ -131,6 +142,12 @@ def bot_move(g, seat):
     moves = g.legal_moves()
     if not moves:
         return None
+    # easy bots blunder on purpose, normal bots now and then, so matches stay winnable
+    level = getattr(g, "difficulty", "normal")
+    if level == "easy" and random.random() < 0.5:
+        return random.choice(moves)
+    if level == "normal" and random.random() < 0.03:
+        return random.choice(moves)
     # 1) take any box
     for o, x, y in moves:
         probe = clone(g)
@@ -179,6 +196,7 @@ def clone(g):
     ng.turn, ng.scores = g.turn, g.scores[:]
     ng.moves, ng.status = [], g.status
     ng.created, ng.bot_fill, ng.pending = g.created, g.bot_fill, g.pending
+    ng.difficulty = getattr(g, "difficulty", "normal")
     return ng
 
 
@@ -272,6 +290,7 @@ class Handler(BaseHTTPRequestHandler):
                 want_bots = body.get("botFill")
                 want_bots = True if want_bots is None else bool(want_bots)
                 g = Game(seats, names or ["host"], bot_fill=want_bots)
+                g.difficulty = "easy" if str(body.get("difficulty") or "").lower() == "easy" else "normal"
                 if names:
                     tok = uuid.uuid4().hex
                     g.tokens[0] = tok

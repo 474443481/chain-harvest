@@ -5,50 +5,74 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Chain Harvest — dots &amp; boxes for humans and agents</title>
 <style>
-  body { font-family: system-ui, sans-serif; background: #101418; color: #e8eef4; margin: 0; padding: 16px; }
-  h1 { font-size: 20px; margin: 0 0 4px; }
-  .sub { color: #93a4b5; font-size: 13px; margin-bottom: 12px; }
-  a { color: #6cb2ff; }
-  .panel { background: #1a222b; border: 1px solid #2c3a47; border-radius: 10px; padding: 12px; margin-bottom: 12px; }
-  button, input { font-size: 14px; padding: 6px 10px; border-radius: 6px; border: 1px solid #3a4a5a; background: #223040; color: #e8eef4; }
-  button { cursor: pointer; }
-  button:hover { background: #2d4256; }
-  table { border-collapse: collapse; }
-  td { padding: 2px 10px 2px 0; }
-  #board { background: #141b22; border-radius: 8px; touch-action: manipulation; }
-  .scores span { margin-right: 14px; }
-  .turn { color: #ffd166; }
-  .muted { color: #93a4b5; }
-  .err { color: #ff8f8f; min-height: 18px; }
-  code { background:#0d1216; padding: 1px 5px; border-radius: 4px; }
+  :root { color-scheme: dark; }
+  body { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; background: #0e1216; color: #e8eef4; margin: 0; padding: 20px; }
+  .wrap { max-width: 1040px; margin: 0 auto; }
+  h1 { font-size: 22px; margin: 0 0 4px; letter-spacing: .2px; }
+  h1 span { color: #6cb2ff; }
+  .sub { color: #8fa3b6; font-size: 13px; margin-bottom: 16px; }
+  a { color: #6cb2ff; text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  .panel { background: #161d25; border: 1px solid #26323d; border-radius: 12px; padding: 14px; margin-bottom: 14px; }
+  button, input, select { font-size: 14px; padding: 7px 11px; border-radius: 8px; border: 1px solid #35485c; background: #1d2a37; color: #e8eef4; }
+  button { cursor: pointer; font-weight: 500; }
+  button:hover { background: #26384a; border-color: #46617c; }
+  button.primary { background: #1f5f9e; border-color: #2d7ac2; }
+  button.primary:hover { background: #2470b8; }
+  table { border-collapse: collapse; font-size: 14px; }
+  td { padding: 3px 14px 3px 0; }
+  .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .cols { display: flex; gap: 16px; align-items: flex-start; flex-wrap: wrap; }
+  #board { background: #111820; border-radius: 10px; touch-action: manipulation; display: block; }
+  .scores { margin-bottom: 6px; font-size: 15px; }
+  .scores span { margin-right: 16px; }
+  .turn { color: #ffd166; font-size: 14px; min-height: 20px; margin-bottom: 8px; font-weight: 500; }
+  .muted { color: #8fa3b6; font-size: 13px; }
+  .err { color: #ff8f8f; min-height: 18px; font-size: 13px; margin-top: 6px; }
+  #log { font-size: 13px; line-height: 1.7; min-width: 210px; color: #b9c9d8; }
+  code { background: #0a0f13; padding: 1px 5px; border-radius: 4px; font-size: 12.5px; }
+  .foot { color: #64798c; font-size: 12px; margin-top: 8px; }
 </style>
 </head>
 <body>
-<h1>Chain Harvest</h1>
-<div class="sub">Dots-and-boxes for 2-4 players. Humans click; agents POST. <a href="/about">Rules &amp; API docs</a> · <a href="/source.zip">source.zip</a></div>
-
-<div class="panel" id="lobby">
-  <b>Start / join a match</b>
-  <div style="margin:8px 0">
-    <input id="name" placeholder="your name" value="human" size="10">
-    <select id="seats"><option>2</option><option>3</option><option>4</option></select> seats
-    <button onclick="createGame()">Create match (bots fill empty seats)</button>
-    <input id="joinCode" placeholder="join code" size="8">
-    <button onclick="joinByCode()">Join by code</button>
+<div class="wrap">
+  <h1>Chain <span>Harvest</span></h1>
+  <div class="sub">
+    Turn-based dots-and-boxes for 2–4 players. Humans click, agents POST to the same API.
+    <a href="/about">Rules &amp; API docs</a> · <a href="/source.zip">source.zip</a> ·
+    <a href="https://github.com/474443481/chain-harvest">GitHub</a>
   </div>
-  <div id="lobbyList" class="muted">open lobbies and live games load below</div>
+
+  <div class="panel" id="lobby">
+    <div class="row">
+      <input id="name" placeholder="your name" value="human" size="10">
+      <select id="seats"><option>2</option><option>3</option><option>4</option></select>
+      <select id="level"><option value="normal">normal bot</option><option value="easy">easy bot</option></select>
+      <button class="primary" onclick="createGame()">Play vs bot</button>
+      <span class="muted">or</span>
+      <input id="joinCode" placeholder="join code" size="8">
+      <button onclick="joinByCode()">Join by code</button>
+    </div>
+    <div id="lobbyList" class="muted" style="margin-top:10px">loading matches…</div>
+  </div>
+
+  <div class="panel">
+    <div class="cols">
+      <div>
+        <div class="scores" id="scores"></div>
+        <div id="status" class="turn"></div>
+        <canvas id="board" width="460" height="460"></canvas>
+        <div id="err" class="err"></div>
+        <div class="muted" id="hint">Click between two dots to draw an edge. Complete a box to score and move again.</div>
+      </div>
+      <div id="log"><span class="muted">move log appears here once play starts</span></div>
+    </div>
+  </div>
+
+  <div class="foot">
+    Agent quickstart: <code>python3 sample_bot.py --base &lt;this host&gt; --name my-agent</code> · state is authoritative server-side
+  </div>
 </div>
-
-<div class="panel">
-  <div class="scores" id="scores"></div>
-  <div id="status" class="turn"></div>
-  <canvas id="board" width="460" height="460"></canvas>
-  <div id="err" class="err"></div>
-  <div class="muted" id="hint">Click between two dots to draw an edge. Complete a box to score and move again.</div>
-</div>
-
-<div class="panel muted" id="log"></div>
-
 <script src="/game.js"></script>
 </body>
 </html>

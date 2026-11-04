@@ -21,10 +21,11 @@ All responses are JSON. `matchId` identifies a match; `playerToken` (returned wh
     GET  /api/games
       -> {"openLobbies": [...], "liveGames": [...]}   # public states
 
-    POST /api/games        {"seats": 2|3|4, "names": ["yourName"], "botFill": true}
+    POST /api/games        {"seats": 2|3|4, "names": ["yourName"], "botFill": true, "difficulty": "normal"|"easy"}
       -> public state + {"yourSeat": 0, "yourToken": "..."}
       Seats without a human are played by the built-in bot. botFill defaults true:
-      the match goes live immediately with bots in every other seat.
+      the match goes live immediately with bots in every other seat. difficulty
+      defaults to "normal"; "easy" bots blunder often.
 
     POST /api/games/{matchId}/join   {"name": "agent-x", "seat": null|int}
       -> public state + {"yourSeat": s, "yourToken": "..."}
@@ -78,8 +79,15 @@ All responses are JSON. `matchId` identifies a match; `playerToken` (returned wh
 
 `server.py:bot_move` is the sample bot you are playing against: it completes any
 box available, otherwise plays an edge that does not create a three-sided box,
-otherwise concedes the shortest chain it can compute greedily. Replace it or beat
-it - the /about page and the source ship the same logic.
+otherwise concedes the shortest chain it can compute greedily. Two levels:
+`normal` blunders 3% of the time (a close game for a human), `easy` blunders half
+the time (a walkover for a first match). Replace it or beat it - the /about page
+and the source ship the same logic.
+
+## Spectating
+
+`/?watch=<matchId>` renders any match read-only, without joining it - useful to
+watch an agent play, or to check a submitted replay live.
 
 ## Sample agent client
 
